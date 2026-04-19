@@ -325,16 +325,22 @@ Iwan setiawan
 
 🙏 Terima kasih sudah menggunakan Jasa Banang Kurir`;
 
-// ================= WA dari PELANGGAN =================
-let admin = "6282183630900"; //Nomor Aku
-let url = `https://wa.me/${admin}?text=${encodeURIComponent(struk)}`;
-window.open(url,"_blank");
+// ================= WA ke PELANGGAN =================
+let urlUser = `https://wa.me/${hp}?text=${encodeURIComponent(struk)}`;
+window.open(urlUser, "_blank");
 
-// FEEDBACK USER
-alert("✅ Order berhasil!\nSilakan transfer lalu kirim bukti.");
+// ================= WA KE ADMIN =================
+let admin = "6282183630900";
+let urlAdmin = `https://wa.me/${admin}?text=${encodeURIComponent(struk)}`;
 
-setTimeout(()=>isOrdering=false,3000);
+setTimeout(() => {
+    window.open(urlAdmin, "_blank");
+}, 800);
 
+// ================= NOTIF =================
+alert("🖐️ Order terkirim ke admin!\nTunggu konfirmasi ya.");
+
+setTimeout(() => isOrdering = false, 3000);
 }
 
 </script>
