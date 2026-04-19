@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Admin Dispatch</title>
+
+<style>
+body{font-family:Arial;background:#111;color:white;margin:0;padding:10px;}
+
+.card{
+background:#222;padding:10px;margin:10px 0;border-radius:10px;
+}
+
+button{
+padding:8px;width:100%;margin-top:5px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📦 ADMIN DISPATCH PANEL</h2>
+
+<div id="list"></div>
+
+<script>
+
+    let drivers=[
+    {id:1,nama:"Agus",hp:"628126955534"},
+    {id:2,nama:"Budi",hp:"628163171992"}
+    ];
+    
+    let orders=JSON.parse(localStorage.getItem("orders")||"[]");
+    
+    function load(){
+    
+    let html="";
+    
+    orders.forEach((o,i)=>{
+    
+    html+=`
+    <div class="card">
+    <b>${o.nama}</b><br>
+    📞 ${o.hp}<br>
+    📍 ${o.pickup}<br>
+    🎯 ${o.tujuan}<br>
+    💰 ${o.harga}<br>
+    📌 Status: <b style="color:${o.status=='DIKIRIM'?'lime':'orange'}">${o.status || "Pending"}</b><br>
+
+    <select id="d${i}">
+    <option value="">Pilih Driver</option>
+    ${drivers.map(d=>`<option value="${d.hp}">${d.nama}</option>`).join("")}
+    </select>
+
+    <button onclick="assign(${i})">ASSIGN</button>
+    <button onclick="hapus(${i})">❌ Hapus</button>
+    </div>
+    `;
+    
+});
+    
+    document.getElementById("list").innerHTML=html;
+    }
+    
+    function assign(i){
+
+let driver=document.getElementById("d"+i).value;
+
+if(!driver){
+alert("Pilih driver");
+return;
+}
+
+let o=orders[i];
+
+let text=
+`🚀 ORDER BANANG KURIR
+🕒 Waktu: ${o.waktu}
+
+👤 Nama: ${o.nama}
+📞 HP: ${o.hp}
+
+📍 Pickup:
+${o.pickup}
+
+🎯 Tujuan:
+${o.tujuan}
+
+
+📌 Status: SIAP JEMPUT
+
+📢 NOTE:
+Hubungi pelanggan sebelum berangkat
+
+🚀 Segera menuju lokasi`;
+
+// update status
+o.status = "DIKIRIM";
+localStorage.setItem("orders", JSON.stringify(orders));
+
+load();
+
+// kirim WA ke driver
+let url=`https://wa.me/${driver}?text=${encodeURIComponent(text)}`;
+window.open(url,"_blank");
+
+}
+function hapus(i){
+if(confirm("Hapus order ini?")){
+orders.splice(i,1);
+localStorage.setItem("orders", JSON.stringify(orders));
+load();
+}
+}
+    load();
+    
+    </script>
+
+</body>
+</html>

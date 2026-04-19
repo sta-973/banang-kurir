@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dispatch Pro FIX</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+
+<style>
+body{margin:0;font-family:Arial;background:#f4f6f8;}
+
+header{
+display:flex;align-items:center;gap:10px;
+background:#011001;color:white;
+padding:10px;font-weight:bold;
+}
+
+header img{width:30px;}
+
+.nav{
+display:flex;gap:6px;justify-content:center;padding:8px;
+}
+
+.nav button{
+padding:6px 10px;border:none;border-radius:6px;
+cursor:pointer;
+}
+
+#map{height:55vh;width:100%;}
+
+.card{padding:10px;}
+
+input,button{
+width:100%;
+padding:8px;
+margin-top:5px;
+border-radius:6px;
+}
+
+button{background:#011001;color:white;}
+
+.leaflet-routing-container{
+color:#000 !important;
+background:#fff !important;
+}
+</style>
+</head>
+
+<body>
+
+<header style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#011001;color:white;">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <img src="banang.png" style="width:35px;">
+        <b>BANANG KURIR</b>
+    </div>
+        <div style="font-size:12px;">
+            🚚 Cepat • Aman • Terpercaya
+        </div>
+</header>
+
+<div class="nav">
+<button onclick="setMode('pickup')">📍 Pickup</button>
+<button onclick="setMode('tujuan')">🎯 Tujuan</button>
+<button id="btn-current">📌 Lokasi Saya</button>
+</div>
+
+<div id="map"></div>
+
+<div class="card">
+<input id="nama" placeholder="Nama">
+<input id="hp" placeholder="HP">
+<input id="pickupText" placeholder="Pickup">
+<input id="tujuanText" placeholder="Tujuan">
+
+<p>Jarak: <span id="jarak">0</span> km</p>
+<p>Harga: <span id="harga">0</span></p>
+
+<button onclick="order()">🚀 ORDER</button>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+<script>
+
+// ================= FORMAT RUPIAH =================
+function rupiah(angka){
+    return "Rp " + Math.round(angka).toLocaleString("id-ID");
+}
+
+// ================= MAP =================
+let map = L.map('map').setView([-0.46,100.40],10);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+setTimeout(()=>map.invalidateSize(),500);
+
+// ================= STATE =================
+let mode=null;
+let pickup=null;
+let tujuan=null;
+let control=null;
+
+let pickupMarker=null;
+let tujuanMarker=null;
+let userMarker=null;
+
+// ================= MODE =================
+function setMode(m){
+mode=m;
+alert("Klik map untuk "+m);
+}
+
+// ================= REVERSE GEO =================
+function getAddress(lat,lng,target){
+fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+.then(r=>r.json())
+.then(d=>{
+document.getElementById(target).value = d.display_name || lat+","+lng;
+})
+.catch(()=>{
+document.getElementById(target).value = lat+","+lng;
+});
+}
+
+// ================= MAP CLICK =================
+map.on('click',e=>{
+
+if(mode==="pickup"){
+pickup=[e.latlng.lat,e.latlng.lng];
+
+// hapus marker lama
+if(pickupMarker) map.removeLayer(pickupMarker);
+
+pickupMarker = L.marker(pickup).addTo(map);
+getAddress(pickup[0],pickup[1],"pickupText");
+}
+
+if(mode==="tujuan"){
+tujuan=[e.latlng.lat,e.latlng.lng];
+
+// hapus marker lama
+if(tujuanMarker) map.removeLayer(tujuanMarker);
+
+tujuanMarker = L.marker(tujuan).addTo(map);
+getAddress(tujuan[0],tujuan[1],"tujuanText");
+}
+
+if(pickup && tujuan){
+
+if(control) map.removeControl(control);
+
+control=L.Routing.control({
+waypoints:[
+L.latLng(pickup),
+L.latLng(tujuan)
+],
+createMarker:()=>null
+}).addTo(map);
+
+control.on('routesfound',e=>{
+let km=e.routes[0].summary.totalDistance/1000;
+
+// VALIDASI
+if(km < 0.1){
+alert("Pickup dan tujuan terlalu dekat!");
+return;
+}
+
+let price=km*2500;
+
+document.getElementById("jarak").innerText=km.toFixed(2);
+document.getElementById("harga").innerText=rupiah(price);
+});
+}
+});
+
+// ================= LOKASI SAYA =================
+document.getElementById("btn-current").onclick = ()=>{
+
+if(!navigator.geolocation){
+alert("GPS tidak tersedia");
+return;
+}
+
+navigator.geolocation.getCurrentPosition(
+
+(pos)=>{
+let lat=pos.coords.latitude;
+let lng=pos.coords.longitude;
+
+pickup=[lat,lng];
+
+// marker update
+if(!userMarker){
+userMarker = L.marker([lat,lng]).addTo(map)
+.bindPopup("📍 Lokasi Anda").openPopup();
+}else{
+userMarker.setLatLng([lat,lng]);
+}
+
+map.setView([lat,lng],16);
+
+// isi alamat
+getAddress(lat,lng,"pickupText");
+},
+
+(err)=>{
+alert("GPS gagal: "+err.message);
+},
+
+{
+enableHighAccuracy:true,
+timeout:10000,
+maximumAge:0
+}
+
+);
+
+};
+// ================= Tanggal dan JAM =================
+function waktuOrder(){
+    const now = new Date();
+    return now.toLocaleString("id-ID", {
+        day:"2-digit",
+        month:"long",
+        year:"numeric",
+        hour:"2-digit",
+        minute:"2-digit"
+    });
+}
+// ================= ORDER =================
+let isOrdering = false;
+
+function order(){
+
+if(isOrdering) return;
+
+let nama = document.getElementById("nama").value.trim();
+let hp   = document.getElementById("hp").value.trim();
+let pickupText = document.getElementById("pickupText").value;
+let tujuanText = document.getElementById("tujuanText").value;
+let harga = document.getElementById("harga").innerText;
+
+// ================= VALIDASI =================
+if(!pickup || !tujuan){
+alert("Lengkapi lokasi dulu!");
+return;
+}
+
+if(nama==="" || hp===""){
+alert("Nama & HP wajib diisi!");
+return;
+}
+
+// VALIDASI PANJANG HP
+if(!/^[0-9]{10,15}$/.test(hp)){
+alert("Nomor HP tidak valid!");
+return;
+}
+
+// AUTO FORMAT KE 62
+if(hp.startsWith("0")){
+hp = "62" + hp.substring(1);
+}
+
+// VALIDASI LOKASI SAMA
+if(pickupText === tujuanText){
+alert("Pickup dan tujuan tidak boleh sama!");
+return;
+}
+
+// ================= UX CONFIRM =================
+if(!confirm("Total biaya: " + harga + "\nLanjut order?")){
+return;
+}
+
+isOrdering = true;
+
+// ================= DATA =================
+let data={
+nama:nama,
+hp:hp,
+pickup:pickupText,
+tujuan:tujuanText,
+harga:harga,
+waktu: waktuOrder(),
+status:"MENUNGGU PEMBAYARAN"
+};
+
+// simpan
+let old=JSON.parse(localStorage.getItem("orders")||"[]");
+old.push(data);
+localStorage.setItem("orders",JSON.stringify(old));
+
+// ================= STRUK =================
+let struk=
+`🚀 ORDER BANANG KURIR
+
+🕒 ${data.waktu}
+
+👤 Nama: ${nama}
+📞 HP: ${hp}
+
+📍 Pickup:
+${pickupText}
+
+🎯 Tujuan:
+${tujuanText}
+
+💰 Harga:
+${harga}
+
+📌 Status:
+MENUNGGU PEMBAYARAN
+
+💳 PEMBAYARAN
+DANA: 6282183630900
+MANDIRI: 1110010524086
+Iwan setiawan
+
+📸 Kirim bukti transfer ke admin
+
+🙏 Terima kasih sudah menggunakan Jasa Banang Kurir`;
+
+// ================= WA KE PELANGGAN =================
+let url = `https://wa.me/${hp}?text=${encodeURIComponent(struk)}`;
+window.open(url,"_blank");
+
+// FEEDBACK USER
+alert("✅ Order berhasil!\nSilakan transfer lalu kirim bukti.");
+
+setTimeout(()=>isOrdering=false,3000);
+
+}
+
+</script>
+<footer style="text-align:center;padding:15px;font-size:12px;background:#011001;color:white;margin-top:10px;">
+© 2026 Banang Kurir <br>
+Terima kasih sudah menggunakan layanan kami 🙏
+</footer>
+
+</body>
+
+</html>
